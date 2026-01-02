@@ -15,12 +15,14 @@ import type { HookAPI } from "@mariozechner/pi-coding-agent";
 import { BorderedLoader } from "@mariozechner/pi-coding-agent";
 import {
 	type Component,
-	Input,
+	Editor,
+	type EditorTheme,
 	isArrowDown,
 	isArrowUp,
 	isCtrlC,
 	isEnter,
 	isEscape,
+	isShiftEnter,
 	isTab,
 	isShiftTab,
 	truncateToWidth,
@@ -137,7 +139,7 @@ class QnAComponent implements Component {
 	private questions: ExtractedQuestion[];
 	private answers: string[];
 	private currentIndex: number = 0;
-	private input: Input;
+	private editor: Editor;
 	private tui: { requestRender: () => void };
 	private onDone: (result: string | null) => void;
 	private showingConfirmation: boolean = false;
@@ -164,16 +166,21 @@ class QnAComponent implements Component {
 		this.tui = tui;
 		this.onDone = onDone;
 
-		this.input = new Input();
-		this.input.onSubmit = () => {
-			// Save current answer and move to next question
-			this.saveCurrentAnswer();
-			if (this.currentIndex < this.questions.length - 1) {
-				this.navigateTo(this.currentIndex + 1);
-			} else if (this.allQuestionsAnswered()) {
-				// On last question and all answered - show confirmation
-				this.showingConfirmation = true;
-			}
+		// Create a minimal theme for the editor
+		const editorTheme: EditorTheme = {
+			borderColor: this.dim,
+			selectList: {
+				selectedBg: (s: string) => `\x1b[44m${s}\x1b[0m`,
+				matchHighlight: this.cyan,
+				itemSecondary: this.gray,
+			},
+		};
+
+		this.editor = new Editor(editorTheme);
+		// Disable the editor's built-in submit (which clears the editor)
+		// We'll handle Enter ourselves to preserve the text
+		this.editor.disableSubmit = true;
+		this.editor.onChange = () => {
 			this.invalidate();
 			this.tui.requestRender();
 		};
@@ -185,14 +192,14 @@ class QnAComponent implements Component {
 	}
 
 	private saveCurrentAnswer(): void {
-		this.answers[this.currentIndex] = this.input.getValue();
+		this.answers[this.currentIndex] = this.editor.getText();
 	}
 
 	private navigateTo(index: number): void {
 		if (index < 0 || index >= this.questions.length) return;
 		this.saveCurrentAnswer();
 		this.currentIndex = index;
-		this.input.setValue(this.answers[index] || "");
+		this.editor.setText(this.answers[index] || "");
 		this.invalidate();
 	}
 
@@ -262,15 +269,16 @@ class QnAComponent implements Component {
 			return;
 		}
 
-		// Arrow up/down for question navigation when input is empty or at boundaries
-		if (isArrowUp(data) && this.input.getValue() === "") {
+		// Arrow up/down for question navigation when editor is empty
+		// (Editor handles its own cursor navigation when there's content)
+		if (isArrowUp(data) && this.editor.getText() === "") {
 			if (this.currentIndex > 0) {
 				this.navigateTo(this.currentIndex - 1);
 				this.tui.requestRender();
 				return;
 			}
 		}
-		if (isArrowDown(data) && this.input.getValue() === "") {
+		if (isArrowDown(data) && this.editor.getText() === "") {
 			if (this.currentIndex < this.questions.length - 1) {
 				this.navigateTo(this.currentIndex + 1);
 				this.tui.requestRender();
@@ -278,8 +286,24 @@ class QnAComponent implements Component {
 			}
 		}
 
-		// Pass to input
-		this.input.handleInput(data);
+		// Handle Enter ourselves (editor's submit is disabled)
+		// Plain Enter moves to next question or shows confirmation on last question
+		// Shift+Enter adds a newline (handled by editor)
+		if (isEnter(data) && !isShiftEnter(data)) {
+			this.saveCurrentAnswer();
+			if (this.currentIndex < this.questions.length - 1) {
+				this.navigateTo(this.currentIndex + 1);
+			} else {
+				// On last question - show confirmation
+				this.showingConfirmation = true;
+			}
+			this.invalidate();
+			this.tui.requestRender();
+			return;
+		}
+
+		// Pass to editor
+		this.editor.handleInput(data);
 		this.invalidate();
 		this.tui.requestRender();
 	}
@@ -290,7 +314,7 @@ class QnAComponent implements Component {
 		}
 
 		const lines: string[] = [];
-		const boxWidth = Math.min(width - 4, 80);
+		const boxWidth = Math.min(width - 4, 120); // Allow wider box
 		const contentWidth = boxWidth - 4; // 2 chars padding on each side
 
 		// Helper to create horizontal lines (dim the whole thing at once)
@@ -355,13 +379,19 @@ class QnAComponent implements Component {
 
 		lines.push(padToWidth(emptyBoxLine()));
 
-		// Answer input
-		lines.push(padToWidth(boxLine(this.bold("A:"))));
-
-		// Render the input component
-		const inputLines = this.input.render(contentWidth);
-		for (const line of inputLines) {
-			lines.push(padToWidth(boxLine(line)));
+		// Render the editor component (multi-line input) with padding
+		// Skip the first and last lines (editor's own border lines)
+		const answerPrefix = this.bold("A: ");
+		const editorWidth = contentWidth - 4 - 3; // Extra padding + space for "A: "
+		const editorLines = this.editor.render(editorWidth);
+		for (let i = 1; i < editorLines.length - 1; i++) {
+			if (i === 1) {
+				// First content line gets the "A: " prefix
+				lines.push(padToWidth(boxLine(answerPrefix + editorLines[i])));
+			} else {
+				// Subsequent lines get padding to align with the first line
+				lines.push(padToWidth(boxLine("   " + editorLines[i])));
+			}
 		}
 
 		lines.push(padToWidth(emptyBoxLine()));
@@ -373,7 +403,7 @@ class QnAComponent implements Component {
 			lines.push(padToWidth(boxLine(truncateToWidth(confirmMsg, contentWidth))));
 		} else {
 			lines.push(padToWidth(this.dim("├" + horizontalLine(boxWidth - 2) + "┤")));
-			const controls = `${this.dim("Tab")} next · ${this.dim("Shift+Tab")} prev · ${this.dim("Enter")} next/submit · ${this.dim("Esc")} cancel`;
+			const controls = `${this.dim("Tab/Enter")} next · ${this.dim("Shift+Tab")} prev · ${this.dim("Shift+Enter")} newline · ${this.dim("Esc")} cancel`;
 			lines.push(padToWidth(boxLine(truncateToWidth(controls, contentWidth))));
 		}
 		lines.push(padToWidth(this.dim("╰" + horizontalLine(boxWidth - 2) + "╯")));
