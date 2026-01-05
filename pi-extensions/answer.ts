@@ -11,7 +11,7 @@
  */
 
 import { complete, type Model, type Api, type UserMessage } from "@mariozechner/pi-ai";
-import type { HookAPI } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { BorderedLoader } from "@mariozechner/pi-coding-agent";
 import {
 	type Component,
@@ -408,7 +408,7 @@ class QnAComponent implements Component {
 	}
 }
 
-export default function (pi: HookAPI) {
+export default function (pi: ExtensionAPI) {
 	pi.registerCommand("answer", {
 		description: "Extract questions from last assistant message into interactive Q&A",
 		handler: async (_args, ctx) => {
