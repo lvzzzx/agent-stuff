@@ -236,8 +236,8 @@ const collectRecentFileReferences = (entries: SessionEntry[], cwd: string, limit
 };
 
 const findLatestFileReference = (entries: SessionEntry[], cwd: string): FileReference | null => {
-	const refs = collectRecentFileReferences(entries, cwd, 1);
-	return refs[0] ?? null;
+	const refs = collectRecentFileReferences(entries, cwd, 100);
+	return refs.find((ref) => ref.exists) ?? null;
 };
 
 const showFileSelector = async (
