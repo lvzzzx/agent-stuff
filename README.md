@@ -25,6 +25,8 @@ All skill files are in the [`skills`](skills) folder:
 * [`/frontend-design`](skills/frontend-design) - Claude Skill for designing and implementing distinctive frontend interfaces
 * [`/uv`](skills/uv) - Claude Skill for using `uv` for Python dependency management and script execution
 * [`/mermaid`](skills/mermaid) - Claude Skill for creating and validating Mermaid diagrams with the official Mermaid CLI
+* [`/delta-rs`](skills/delta-rs) - Claude Skill for Delta Lake workflows with `delta-rs` (read/write, merge/upsert, time travel, optimize, vacuum)
+* [`/quant-lake-architect`](skills/quant-lake-architect) - Persona skill for offline quantitative trading research lakehouse architecture design
 
 ## PI Coding Agent Extensions
 

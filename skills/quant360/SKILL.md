@@ -43,7 +43,7 @@ Quant360 (data.quant360.com) provides Level 2/3 tick-by-tick data for Chinese A-
 | Cancel events | `OrdType='D'` in order stream | `ExecType='4'` in tick stream |
 | Trade linkage | `BuyNo` + `SellNo` | `BidApplSeqNum` + `OfferApplSeqNum` |
 | Trade direction | Explicit `TradeBSFlag` (B/S/N) | Inferred from order refs |
-| L2 snapshots | Not available | Available (`L2_new_*`) |
+| L2 snapshots | Available (`L2_new_*`) | Available (`L2_new_*`) |
 | Closing auction | No explicit phase (14:57-15:00 is closed) | Dedicated 14:57-15:00 phase |
 
 ## Schema Comparison: Tick/Trade Stream
@@ -146,13 +146,55 @@ All boards: **0.01 CNY** per share.
 - `ExecType='F'`=Fill (trade), `'4'`=Cancel (withdrawal)
 - Early morning data (09:15-09:30) contains mostly cancel events (`ExecType='4'`) as orders are rejected or withdrawn during auction phases
 
-### L2 Snapshots — SZSE Only
+### L2 Snapshots — SSE & SZSE
 
-Key fields: `QuotTime`, `PreClosePx`, `OpenPx`, `HighPx`, `LowPx`, `LastPx`, `Volume`, `Amount`, `BidPrice` (10 levels), `BidOrderQty`, `OfferPrice` (10 levels), `OfferOrderQty`, `UpperLimitPx`, `LowerLimitPx`, `TradingPhaseCode`
+Available for both exchanges via `L2_new_STK_SH_*.7z` and `L2_new_STK_SZ_*.7z`.
 
-Array fields are JSON bracket notation: `"[11.63,11.62,11.61,...]"`
+**⚠️ SSE and SZSE L2 snapshots have different column schemas. You cannot use the same parser for both.**
 
-~30-second snapshot intervals during trading hours.
+~3-second snapshot intervals during trading hours. Array fields use JSON bracket notation: `"[11.63,11.62,11.61,...]"`
+
+#### L2 Schema Comparison
+
+| Column Concept | SSE (SH) | SZSE (SZ) | Notes |
+|---|---|---|---|
+| **Symbol** | `SecurityID` | *Filename only* | Same pattern as tick/order streams |
+| **Timestamp** | `DateTime` | `QuotTime` + `SendingTime` | SZSE has gateway + exchange times |
+| **Volume** | `TotalVolumeTrade` | `Volume` | Different column names |
+| **Amount** | `TotalValueTrade` | `Amount` | Different column names |
+| **Trading Phase** | `InstrumentStatus` | `TradingPhaseCode` | Different encoding (see below) |
+| **Bid/Offer NumOrders** | **Array[10]** (per-level) | **Scalar** (total) | Critical difference |
+| **Close Price** | *Not present* | `ClosePx` | SZSE only |
+| **Average Price** | *Not present* | `AveragePx` | SZSE only |
+| **Price Limits** | *Not present* | `UpperLimitPx`, `LowerLimitPx` | SZSE only |
+| **PE Ratios** | *Not present* | `PeRatio1`, `PeRatio2` | SZSE only |
+| **IOPV** | `IOPV` | *Not present* | SSE only (ETF indicator value) |
+| **Withdraw stats** | `WithdrawBuy/Sell*` (6 cols) | *Not present* | SSE only |
+| **ETF stats** | `ETFBuy/Sell*` (6 cols) | *Not present* | SSE only |
+| **Order count stats** | `NumBidOrders`, `NumOfferOrders`, `TotalBidNumber`, `TotalOfferNumber` | `NoOrdersB1`, `NoOrdersS1` | SSE has 4 fields, SZSE has 2 |
+| **Max duration** | `BidTradeMaxDuration`, `OfferTradeMaxDuration` | *Not present* | SSE only |
+| **Sequence** | *Not present* | `MsgSeqNum` | SZSE only |
+| **Image flag** | *Not present* | `ImageStatus` | SZSE only |
+
+#### Trading Phase Encoding
+
+| Phase | SSE `InstrumentStatus` | SZSE `TradingPhaseCode` |
+|---|---|---|
+| Pre-open / Opening Call | `OCALL` | `S0` (Start) |
+| Opening price determination | `OCALL` | `O0` (Open) |
+| Continuous Trading | `TRADE` | `T0` (Trade) |
+| Lunch Break | `TRADE` → `OCALL` | `B0` (Break) |
+| Closing Call (14:57-15:00) | `CCALL` | `C0` (Close) |
+| Market Closed | `CLOSE` | `E0` (End) |
+| End of Transmission | `ENDTR` | `E0` |
+
+#### L2 Snapshot — SSE (42 columns)
+
+`SecurityID`, `DateTime`, `PreClosePx`, `OpenPx`, `HighPx`, `LowPx`, `LastPx`, `TotalVolumeTrade`, `TotalValueTrade`, `InstrumentStatus`, `BidPrice` (10 levels), `BidOrderQty` (10 levels), `BidNumOrders` **(10 levels array)**, `BidOrders` (50 entries), `OfferPrice` (10 levels), `OfferOrderQty` (10 levels), `OfferNumOrders` **(10 levels array)**, `OfferOrders` (50 entries), `NumTrades`, `IOPV`, `TotalBidQty`, `TotalOfferQty`, `WeightedAvgBidPx`, `WeightedAvgOfferPx`, `TotalBidNumber`, `TotalOfferNumber`, `BidTradeMaxDuration`, `OfferTradeMaxDuration`, `NumBidOrders`, `NumOfferOrders`, `WithdrawBuyNumber`, `WithdrawBuyAmount`, `WithdrawBuyMoney`, `WithdrawSellNumber`, `WithdrawSellAmount`, `WithdrawSellMoney`, `ETFBuyNumber`, `ETFBuyAmount`, `ETFBuyMoney`, `ETFSellNumber`, `ETFSellAmount`, `ETFSellMoney`
+
+#### L2 Snapshot — SZSE (38 columns)
+
+`SendingTime`, `MsgSeqNum`, `ImageStatus`, `QuotTime`, `PreClosePx`, `OpenPx`, `HighPx`, `LowPx`, `LastPx`, `ClosePx`, `Volume`, `Amount`, `AveragePx`, `BidPrice` (10 levels), `BidOrderQty` (10 levels), `BidNumOrders` **(scalar)**, `BidOrders` (50 entries), `OfferPrice` (10 levels), `OfferOrderQty` (10 levels), `OfferNumOrders` **(scalar)**, `OfferOrders` (50 entries), `NumTrades`, `TotalBidQty`, `WeightedAvgBidPx`, `TotalOfferQty`, `WeightedAvgOfferPx`, `Change1`, `Change2`, `TotalLongPosition`, `PeRatio1`, `PeRatio2`, `UpperLimitPx`, `LowerLimitPx`, `WeightedAvgPxChg`, `PreWeightedAvgPx`, `TradingPhaseCode`, `NoOrdersB1`, `NoOrdersS1`
 
 ## Symbol Code Ranges
 
