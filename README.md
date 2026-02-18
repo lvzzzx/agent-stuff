@@ -15,8 +15,11 @@ All skill files are in the [`skills`](skills) folder:
 * [`/openscad`](skills/openscad) - Claude Skill for creating and rendering OpenSCAD 3D models and exporting STL files
 * [`/web-browser`](skills/web-browser) - Claude Skill for using Puppeteer in a Node environment to browse the web
 * [`/tmux`](skills/tmux) - Claude Skill for driving tmux directly with keystrokes and pane output scraping
+* [`/tushare`](skills/tushare) - Claude Skill for Tushare Pro Chinese financial data (A-shares, HKEX stocks, daily prices, financial statements)
 * [`/sentry`](skills/sentry) - Alternative way to access Sentry as a Claude Skill for reading issues
+* [`/tardis`](skills/tardis) - Claude Skill for Tardis.dev cryptocurrency market data (trades, order books, derivatives, liquidations)
 * [`/pi-share`](skills/pi-share) - Claude Skill for loading and parsing session transcripts from shittycodingagent.ai
+* [`/quant360`](skills/quant360) - Claude Skill for Quant360 Chinese stock Level 2/3 tick data (SSE/SZSE order flow, trade feeds, L2 snapshots)
 * [`/anachb`](skills/anachb) - Claude Skill for querying Austrian public transport (VOR AnachB) for departures, routes, and disruptions
 * [`/oebb-scotty`](skills/oebb-scotty) - Claude Skill for Austrian rail travel planning via ÖBB Scotty API
 * [`/frontend-design`](skills/frontend-design) - Claude Skill for designing and implementing distinctive frontend interfaces
