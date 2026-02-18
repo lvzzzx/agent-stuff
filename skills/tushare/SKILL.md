@@ -7,9 +7,19 @@ description: "Access Chinese financial markets data via Tushare Pro. Query A-sha
 
 Financial data platform for Chinese markets (A-shares SSE/SZSE, Beijing Exchange BSE, Hong Kong HKEX). Provides stock prices, financial statements, and calculated ratios.
 
-**Setup:** `export TUSHARE_TOKEN="your_token"` (get from tushare.pro/user/token)
+**Setup:**
+1. Get token: Register at tushare.pro and copy token from tushare.pro/user/token
+2. Set env var: `export TUSHARE_TOKEN="your_token"`
 
-**SDK:** `uv add tushare` or `uv run --with tushare script.py`
+**Running Scripts:** Scripts use `uv` inline metadata. Run with:
+```bash
+# Using uv run (auto-installs tushare)
+uv run --script ./search.py 平安银行
+
+# Or install tushare first
+uv add tushare
+python ./search.py 平安银行
+```
 
 **Rate Limits:** 500 calls/min base; point-based system (free tier: 200 points/day)
 
@@ -28,13 +38,13 @@ Financial data platform for Chinese markets (A-shares SSE/SZSE, Beijing Exchange
 
 ## QUICK REFERENCE - HELPER SCRIPTS
 
-| Script | Purpose | Example |
-|--------|---------|---------|
-| `search.py` | Find stocks by name/keyword | `./search.py 平安银行` |
-| `stock_list.py` | List all stocks | `./stock_list.py --exchange SSE` |
-| `daily_price.py` | Get daily OHLCV prices | `./daily_price.py 000001.SZ --days 30` |
-| `financial.py` | Get financial statements | `./financial.py indicators 000001.SZ` |
-| `company.py` | Get company profile | `./company.py 000001.SZ` |
+| Script | Purpose | Example (with uv) |
+|--------|---------|-------------------|
+| `search.py` | Find stocks by name/keyword | `uv run --script ./search.py 平安银行` |
+| `stock_list.py` | List all stocks | `uv run --script ./stock_list.py --exchange SSE` |
+| `daily_price.py` | Get daily OHLCV prices | `uv run --script ./daily_price.py 000001.SZ --days 30` |
+| `financial.py` | Get financial statements | `uv run --script ./financial.py indicators 000001.SZ` |
+| `company.py` | Get company profile | `uv run --script ./company.py 000001.SZ` |
 
 ---
 
@@ -73,10 +83,14 @@ Primary reference for all listed securities. Cache locally - changes infrequentl
 
 **Using helper script:**
 ```bash
-./stock_list.py                    # All listed stocks
-./stock_list.py --exchange SSE     # Shanghai only
-./stock_list.py --market 创业板     # ChiNext only
-./stock_list.py --csv > stocks.csv # Save to CSV
+# With uv (recommended)
+uv run --script ./stock_list.py
+uv run --script ./stock_list.py --exchange SSE
+uv run --script ./stock_list.py --market 创业板
+uv run --script ./stock_list.py --csv > stocks.csv
+
+# Or if tushare is installed globally
+./stock_list.py
 ```
 
 **Python SDK:**
@@ -128,9 +142,12 @@ End-of-day unadjusted prices. Data available after 15:00-16:00 each trading day.
 
 **Using helper script:**
 ```bash
+# With uv (recommended)
+uv run --script ./daily_price.py 000001.SZ --start 20240101 --end 20241231
+uv run --script ./daily_price.py 000001.SZ --days 30 --csv
+
+# Or if tushare is installed globally
 ./daily_price.py 000001.SZ --start 20240101 --end 20241231
-./daily_price.py 000001.SZ --days 30 --csv
-./daily_price.py "000001.SZ,600000.SH" --start 20240101
 ```
 
 **Python SDK:**
@@ -346,11 +363,13 @@ Single quarter values (vs. cumulative YTD for quarterly reports before Q4):
 
 **Using helper script:**
 ```bash
+# With uv (recommended)
+uv run --script ./financial.py indicators 000001.SZ --period 20240930
+uv run --script ./financial.py indicators 000001.SZ --start 20200101 --end 20241231 --csv
+uv run --script ./financial.py all 000001.SZ       # All statement types (latest)
+
+# Or if tushare is installed globally
 ./financial.py indicators 000001.SZ --period 20240930
-./financial.py indicators 000001.SZ --start 20200101 --end 20241231 --csv
-./financial.py all 000001.SZ       # All statement types (latest)
-./financial.py income 000001.SZ --period 20240930
-./financial.py balance 000001.SZ --period 20240930
 ```
 
 **Python SDK:**
@@ -396,10 +415,13 @@ pro.fina_indicator(ts_code='600000.SH', period='20240930')
 
 **Using helper script:**
 ```bash
+# With uv (recommended)
+uv run --script ./company.py 000001.SZ
+uv run --script ./search.py 平安银行              # Search by name
+uv run --script ./search.py 银行                  # Search by industry
+
+# Or if tushare is installed globally
 ./company.py 000001.SZ
-./search.py 平安银行              # Search by name
-./search.py 银行                  # Search by industry
-./search.py 深圳                  # Search by area
 ```
 
 ---
